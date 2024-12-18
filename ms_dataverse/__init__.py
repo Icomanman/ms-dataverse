@@ -1,11 +1,12 @@
 import requests
-import xml.etree.ElementTree as ET
+
 
 class DataverseError(Exception):
     def __init__(self, message, status_code=None, response=None):
         super().__init__(message)
         self.status_code = status_code
         self.response = response
+
 
 class DataverseORM:
     def __init__(self, dynamics_url, access_token, refresh_token_callback=None):
@@ -18,7 +19,8 @@ class DataverseORM:
             "Prefer": "return=representation"
         }
         self.base_url = f"{dynamics_url}/api/data/v9.2/"
-        self.metadata_validation = metadata_validation
+        # self.metadata_validation = metadata_validation
+        self.metadata_validation = None
         self._entity_cache = {}
         self.refresh_token_callback = refresh_token_callback
 
@@ -35,13 +37,13 @@ class DataverseORM:
             self._entity_cache[entity_name] = Entity(self, entity_name)
         return self._entity_cache[entity_name]
 
+
 class Entity:
     def __init__(self, orm, entity_name):
         self.orm = orm
         self.entity_name = entity_name
         # if orm.metadata_validation:
         #     self.entity_set, self.entity_type_element = self._validate_entity()
-
 
     def get(self, entity_id):
         url = f"{self.orm.base_url}{self.entity_name}({entity_id})"
@@ -50,33 +52,38 @@ class Entity:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-                if self.orm.handle_token_expiration_error(e):
-                    return self.get(entity_id)
-                else:
-                    raise DataverseError(f"Error getting entity: {e}", response=e.response)
+            if self.orm.handle_token_expiration_error(e):
+                return self.get(entity_id)
+            else:
+                raise DataverseError(
+                    f"Error getting entity: {e}", response=e.response)
 
     def create(self, entity_data):
         # self._validate_properties(entity_data)
         url = f"{self.orm.base_url}{self.entity_name}"
         try:
-            response = requests.post(url, headers=self.orm.headers, json=entity_data)
+            response = requests.post(
+                url, headers=self.orm.headers, json=entity_data)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             if self.orm.handle_token_expiration_error(e):
                 return self.create(entity_data)
-            raise DataverseError(f"Error creating entity: {e}", response=e.response)
+            raise DataverseError(
+                f"Error creating entity: {e}", response=e.response)
 
     def update(self, entity_id, entity_data):
         url = f"{self.orm.base_url}{self.entity_name}({entity_id})"
         try:
-            response = requests.patch(url, headers=self.orm.headers, json=entity_data)
+            response = requests.patch(
+                url, headers=self.orm.headers, json=entity_data)
             response.raise_for_status()
             return response.status_code == 204
         except requests.exceptions.RequestException as e:
             if self.orm.handle_token_expiration_error(e):
                 return self.update(entity_id, entity_data)
-            raise DataverseError(f"Error updating entity: {e}", response=e.response)
+            raise DataverseError(
+                f"Error updating entity: {e}", response=e.response)
 
     def delete(self, entity_id):
         url = f"{self.orm.base_url}{self.entity_name}({entity_id})"
@@ -85,9 +92,10 @@ class Entity:
             response.raise_for_status()
             return response.status_code == 204
         except requests.exceptions.RequestException as e:
-            if(self.orm.handle_token_expiration_error(e)):
+            if (self.orm.handle_token_expiration_error(e)):
                 return self.delete(entity_id)
-            raise DataverseError(f"Error deleting entity: {e}", response=e.response)
+            raise DataverseError(
+                f"Error deleting entity: {e}", response=e.response)
 
     def query(self, filter_expression=None, select_fields=None, order_by=None):
         url = f"{self.orm.base_url}{self.entity_name}"
@@ -101,10 +109,12 @@ class Entity:
             params["$orderby"] = order_by
 
         try:
-            response = requests.get(url, headers=self.orm.headers, params=params)
+            response = requests.get(
+                url, headers=self.orm.headers, params=params)
             response.raise_for_status()
             return response.json()["value"]
         except requests.exceptions.RequestException as e:
-            if(self.orm.handle_token_expiration_error(e)):
+            if (self.orm.handle_token_expiration_error(e)):
                 return self.query(filter_expression, select_fields, order_by)
-            raise DataverseError(f"Error querying entity: {e}", response=e.response)
+            raise DataverseError(
+                f"Error querying entity: {e}", response=e.response)
